@@ -1,0 +1,9 @@
+[build]
+  command = "cd front && npm run build"
+  publish = "front/.next"
+
+[functions]
+  directory = "back/netlify/functions"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
