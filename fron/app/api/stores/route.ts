@@ -1,0 +1,86 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET() {
+  try {
+    const response = await fetch(
+      'http://localhost:8888/.netlify/functions/stores',
+      {
+        cache: 'no-store',
+      },
+    );
+
+    const data = await response.json();
+
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error(err);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Unable to load stores',
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const response = await fetch(
+      'http://localhost:8888/.netlify/functions/stores',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+    const data = await response.json();
+
+    return NextResponse.json(data, { status: response.status });
+  } catch (err) {
+    console.error(err);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Unable to create store',
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const response = await fetch(
+      'http://localhost:8888/.netlify/functions/stores',
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+    const data = await response.json();
+
+    return NextResponse.json(data, { status: response.status });
+  } catch (err) {
+    console.error(err);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Unable to delete store',
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
