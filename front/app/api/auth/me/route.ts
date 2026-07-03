@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${new URL(request.url).origin}/.netlify/functions/auth-me`, {
+    const response = await fetch(`${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/auth-me`, {
       method: 'GET',
       headers: {
         Cookie: request.headers.get('cookie') || '',

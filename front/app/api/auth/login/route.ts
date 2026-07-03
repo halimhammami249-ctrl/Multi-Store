@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const response = await fetch(
-      `${new URL(request.url).origin}/.netlify/functions/auth-login`,
+      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/auth-login`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

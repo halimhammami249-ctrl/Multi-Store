@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   const response = await fetch(
-    `${new URL(request.url).origin}/.netlify/functions/attribute-values?store_id=${storeId}&attribute_id=${attributeId}`,
+    `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/attribute-values?store_id=${storeId}&attribute_id=${attributeId}`,
     { cache: 'no-store' },
   )
   const data = await response.json()
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const response = await fetch(
-    `${new URL(request.url).origin}/.netlify/functions/attribute-values?store_id=${storeId}`,
+    `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/attribute-values?store_id=${storeId}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -47,7 +47,7 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json()
   const response = await fetch(
-    `${new URL(request.url).origin}/.netlify/functions/attribute-values?store_id=${storeId}`,
+    `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/attribute-values?store_id=${storeId}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

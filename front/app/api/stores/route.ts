@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const response = await fetch(
-      `${new URL(request.url).origin}/.netlify/functions/stores`,
+      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/stores`,
       {
         cache: 'no-store',
       },
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const response = await fetch(
-      `${new URL(request.url).origin}/.netlify/functions/stores`,
+      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/stores`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json();
     const response = await fetch(
-      `${new URL(request.url).origin}/.netlify/functions/stores`,
+      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/stores`,
       {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },

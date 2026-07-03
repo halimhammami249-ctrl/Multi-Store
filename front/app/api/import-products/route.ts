@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 function getFunctionsBase(request: NextRequest) {
   return (
     process.env.NETLIFY_FUNCTION_URL ||
-    `${new URL(request.url).origin}/.netlify/functions`
+    `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions`
   );
 }
 

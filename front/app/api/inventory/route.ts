@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${new URL(request.url).origin}/.netlify/functions/inventory?store_id=${storeId}`,
+      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/inventory?store_id=${storeId}`,
       { cache: 'no-store' },
     )
     const data = await response.json()
@@ -42,7 +42,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const response = await fetch(
-      `${new URL(request.url).origin}/.netlify/functions/inventory?store_id=${storeId}`,
+      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/inventory?store_id=${storeId}`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const response = await fetch(
-    `${new URL(request.url).origin}/.netlify/functions/variant-attributes?store_id=${storeId}&variant_id=${variantId}`,
+    `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/variant-attributes?store_id=${storeId}&variant_id=${variantId}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST() {
   try {
-    const response = await fetch(`${new URL(request.url).origin}/.netlify/functions/auth-logout`, {
+    const response = await fetch(`${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/auth-logout`, {
       method: 'POST',
     })
     const data = await response.json()
