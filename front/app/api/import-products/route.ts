@@ -1,30 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const NETLIFY_URL =
-  process.env.NETLIFY_FUNCTION_URL ||
-  `${new URL(request.url).origin}/.netlify/functions`;
+function getFunctionsBase(request: NextRequest) {
+  return (
+    process.env.NETLIFY_FUNCTION_URL ||
+    `${new URL(request.url).origin}/.netlify/functions`
+  );
+}
 
 export async function POST(request: NextRequest) {
+  const NETLIFY_URL = getFunctionsBase(request);
   const storeId = request.nextUrl.searchParams.get('storeId');
-
   if (!storeId) {
     return NextResponse.json({ error: 'storeId required' }, { status: 400 });
   }
-
   let body;
-
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-
   const rows = body?.rows;
-
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: 'rows required' }, { status: 400 });
   }
-
   try {
     const res = await fetch(
       `${NETLIFY_URL}/import-products?store_id=${storeId}`,
@@ -36,9 +34,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({ rows }),
       },
     );
-
     const data = await res.json().catch(() => ({}));
-
     if (!res.ok) {
       return NextResponse.json(
         {
@@ -48,7 +44,6 @@ export async function POST(request: NextRequest) {
         { status: res.status },
       );
     }
-
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json(
@@ -61,29 +56,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// FIX: this handler was completely missing. The frontend was polling
-// POST /api/import-products?jobId=... which only ever matched the POST
-// handler above (storeId + rows required), so every poll 400'd with
-// "storeId required" and the import-worker function was never invoked -
-// jobs got created but rows never actually processed.
 export async function GET(request: NextRequest) {
+  const NETLIFY_URL = getFunctionsBase(request);
   const jobId = request.nextUrl.searchParams.get('jobId');
-
   if (!jobId) {
     return NextResponse.json({ error: 'jobId required' }, { status: 400 });
   }
-
   try {
-    // Each call processes one chunk of pending rows (see import-worker.js)
-    // and reports current progress; the client polls this until status
-    // comes back 'completed'.
     const res = await fetch(
       `${NETLIFY_URL}/import-worker?job_id=${encodeURIComponent(jobId)}`,
       { method: 'POST' },
     );
-
     const data = await res.json().catch(() => ({}));
-
     if (!res.ok) {
       return NextResponse.json(
         {
@@ -93,7 +77,6 @@ export async function GET(request: NextRequest) {
         { status: res.status },
       );
     }
-
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json(
