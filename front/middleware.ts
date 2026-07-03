@@ -87,7 +87,7 @@ function getTokenFromCookie(cookieHeader: string | null): string | undefined {
   return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtected = isAdminPage(pathname) || isProtectedApi(pathname);
