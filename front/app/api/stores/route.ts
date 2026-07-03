@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET() {
   try {
     const response = await fetch(
-      'http://localhost:8888/.netlify/functions/stores',
+      `${new URL(request.url).origin}/.netlify/functions/stores`,
       {
         cache: 'no-store',
       },
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const response = await fetch(
-      'http://localhost:8888/.netlify/functions/stores',
+      `${new URL(request.url).origin}/.netlify/functions/stores`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json();
     const response = await fetch(
-      'http://localhost:8888/.netlify/functions/stores',
+      `${new URL(request.url).origin}/.netlify/functions/stores`,
       {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },

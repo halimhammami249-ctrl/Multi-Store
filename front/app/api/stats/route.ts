@@ -4,8 +4,8 @@ export async function GET(request: NextRequest) {
   const storeId = request.nextUrl.searchParams.get('storeId');
 
   const url = storeId
-    ? `http://localhost:8888/.netlify/functions/dashboard?storeId=${storeId}`
-    : `http://localhost:8888/.netlify/functions/dashboard`;
+    ? `${new URL(request.url).origin}/.netlify/functions/dashboard?storeId=${storeId}`
+    : `${new URL(request.url).origin}/.netlify/functions/dashboard`;
 
   const response = await fetch(url, {
     cache: 'no-store',

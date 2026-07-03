@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/products?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/products?store_id=${storeId}`,
       { cache: 'no-store' },
     )
     const data = await response.json()
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/products?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/products?store_id=${storeId}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/product?store_id=${storeId}&id=${productId}`,
+      `${new URL(request.url).origin}/.netlify/functions/product?store_id=${storeId}&id=${productId}`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -134,7 +134,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/product?store_id=${storeId}&id=${productId}`,
+      `${new URL(request.url).origin}/.netlify/functions/product?store_id=${storeId}&id=${productId}`,
       { method: 'DELETE' },
     )
 

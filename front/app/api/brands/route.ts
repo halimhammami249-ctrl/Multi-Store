@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/brands?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
         cache: 'no-store',
       },
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/brands?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
         method: 'POST',
         headers: {
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/brands?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
         method: 'PUT',
         headers: {
@@ -119,7 +119,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/brands?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
         method: 'DELETE',
         headers: {

@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   const response = await fetch(
-    `http://localhost:8888/.netlify/functions/variants?store_id=${storeId}&product_id=${productId}`,
+    `${new URL(request.url).origin}/.netlify/functions/variants?store_id=${storeId}&product_id=${productId}`,
     { cache: 'no-store' },
   )
   const data = await response.json()
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const response = await fetch(
-    `http://localhost:8888/.netlify/functions/variants?store_id=${storeId}&product_id=${productId}`,
+    `${new URL(request.url).origin}/.netlify/functions/variants?store_id=${storeId}&product_id=${productId}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -48,7 +48,7 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json()
   const response = await fetch(
-    `http://localhost:8888/.netlify/functions/variants?store_id=${storeId}`,
+    `${new URL(request.url).origin}/.netlify/functions/variants?store_id=${storeId}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

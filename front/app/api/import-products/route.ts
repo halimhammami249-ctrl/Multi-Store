@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const NETLIFY_URL =
   process.env.NETLIFY_FUNCTION_URL ||
-  'http://localhost:8888/.netlify/functions';
+  `${new URL(request.url).origin}/.netlify/functions`;
 
 export async function POST(request: NextRequest) {
   const storeId = request.nextUrl.searchParams.get('storeId');

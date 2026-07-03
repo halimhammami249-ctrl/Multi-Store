@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/media?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/media?store_id=${storeId}`,
       { cache: 'no-store' },
     )
     const data = await response.json()
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/media?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/media?store_id=${storeId}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json()
     const response = await fetch(
-      `http://localhost:8888/.netlify/functions/media?store_id=${storeId}`,
+      `${new URL(request.url).origin}/.netlify/functions/media?store_id=${storeId}`,
       {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
