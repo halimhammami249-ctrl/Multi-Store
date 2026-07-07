@@ -84,8 +84,15 @@ export default function ImportPage() {
       setResult(d);
       status = d.status || 'completed';
 
+      // SCALE: the worker now resolves brands/categories in bulk per
+      // chunk and relocates images in parallel instead of serially, so
+      // chunks finish much faster than before. The old flat 800ms wait
+      // between polls was fine for a slow worker but is now just dead
+      // time on every poll - at 500+ rows that adds up to real seconds
+      // of the progress bar sitting idle for no reason. 250ms keeps the
+      // UI responsive without polling so fast it's wasteful.
       if (status === 'processing') {
-        await new Promise((res) => setTimeout(res, 800));
+        await new Promise((res) => setTimeout(res, 250));
       }
     }
   };

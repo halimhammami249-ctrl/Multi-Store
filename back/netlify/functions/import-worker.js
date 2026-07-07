@@ -1,7 +1,17 @@
 const pool = require('../../db');
 const cloudinary = require('cloudinary').v2;
 
-const CHUNK_SIZE = 20;
+// SCALE: bumped from 20 now that brand/category lookups are batched and
+// image relocation is parallelized - each row does far less serial work,
+// so a bigger chunk still finishes comfortably inside the function's
+// execution window. Override via env if a particular deployment target
+// needs a smaller window.
+const CHUNK_SIZE = Number(process.env.IMPORT_CHUNK_SIZE || 50);
+
+// How many Cloudinary rename calls to run at once per chunk. Cloudinary
+// rate limits are per-account, not per-request, so this is deliberately
+// conservative rather than "as many as CHUNK_SIZE".
+const IMAGE_CONCURRENCY = Number(process.env.IMPORT_IMAGE_CONCURRENCY || 8);
 
 function json(statusCode, body) {
   return {
@@ -11,29 +21,47 @@ function json(statusCode, body) {
   };
 }
 
+/* ---------------- SMALL CONCURRENCY LIMITER ----------------
+ * No extra dependency - just caps how many of `items` are in flight via
+ * `fn` at once, instead of either fully sequential (slow) or a single
+ * unbounded Promise.all (risks hammering Cloudinary/DB with 50+ requests
+ * at once in the same tick).
+ */
+async function mapWithConcurrency(items, concurrency, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i], i);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, worker),
+  );
+
+  return results;
+}
+
 /* ---------------- CLOUDINARY ---------------- */
 
+let cloudinaryConfigured = false;
 function configureCloudinary() {
+  if (cloudinaryConfigured) return;
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
+  cloudinaryConfigured = true;
 }
 
-// SCALABILITY FIX: this used to be `cloudinary.uploader.upload(url, ...)`
-// - which downloads the image bytes back down from Cloudinary and
-// re-uploads them, per row, just to move it into a per-product folder.
-// For 1,000 images that's 1,000 full download+upload round trips on top
-// of the original upload from the browser - it roughly doubles the
-// total image transfer time and is the single biggest throughput killer
-// in the whole pipeline.
-//
-// `rename` is a metadata operation - Cloudinary just points the existing
-// asset at a new public_id/folder, no file data moves at all. This only
-// works when the browser upload gave us a publicId (see
-// image-drop-zone.tsx); if for some reason it didn't, we fall back to
-// just using the existing URL unchanged rather than re-uploading.
+// SCALABILITY FIX (kept from before): `rename` is a metadata operation, no
+// file bytes move. Only works when the browser upload gave us a publicId;
+// otherwise we fall back to the existing URL unchanged.
 async function relocateImage(publicId, url, storeId, slug) {
   if (!publicId) return url || null;
 
@@ -47,9 +75,6 @@ async function relocateImage(publicId, url, storeId, slug) {
     });
     return res.secure_url;
   } catch (err) {
-    // If the rename fails (e.g. target already taken by a prior run and
-    // overwrite raced), don't fail the whole row over a cosmetic folder
-    // move - just keep the image where the browser already put it.
     return url || null;
   }
 }
@@ -62,50 +87,105 @@ function slugify(v) {
     .replace(/(^-|-$)/g, '');
 }
 
-/* ---------------- FIX: BRAND/CATEGORY ----------------
- * The original code did `SELECT id FROM brands WHERE store_id=$1 LIMIT 1`
- * (and the same for categories) - completely ignoring row.brand /
- * row.category from the spreadsheet, so every product in every import
- * silently got assigned to whichever brand/category happened to exist
- * first for that store. This now looks up (or creates) the brand/category
- * that actually matches the row's data.
+/* ---------------- BRAND / CATEGORY BULK RESOLUTION ----------------
+ * SCALE: the old code did one SELECT (+ maybe one INSERT) per row, per
+ * table - for 500 rows sharing 5 brands that's up to 1,000 avoidable
+ * round trips. This resolves every distinct brand/category name in the
+ * whole chunk in a single upsert statement each, using the case-insensitive
+ * unique indexes added in import-scale-migration.sql as the ON CONFLICT
+ * target (mirrors the LOWER(name)=LOWER($2) matching the old per-row code
+ * used). `DO UPDATE SET name = <table>.name` is a no-op write that exists
+ * purely so Postgres returns the row on the conflict path too - RETURNING
+ * doesn't fire for skipped rows under DO NOTHING.
  */
-async function getOrCreateBrand(client, storeId, name) {
-  const brandName =
-    name && String(name).trim() ? String(name).trim() : 'Default Brand';
+function displayNameOrDefault(name, fallback) {
+  return name && String(name).trim() ? String(name).trim() : fallback;
+}
 
+async function resolveBrandsBulk(client, storeId, rawNames) {
+  const byLower = new Map();
+  for (const n of rawNames) {
+    const display = displayNameOrDefault(n, 'Default Brand');
+    const key = display.toLowerCase();
+    if (!byLower.has(key)) byLower.set(key, display);
+  }
+
+  const map = new Map();
+  const names = [...byLower.values()];
+  if (!names.length) return map;
+
+  const res = await client.query(
+    `
+    INSERT INTO brands (name, store_id)
+    SELECT name, $2::uuid FROM unnest($1::text[]) AS name
+    ON CONFLICT (store_id, LOWER(name)) DO UPDATE SET name = brands.name
+    RETURNING id, LOWER(name) AS key
+    `,
+    [names, storeId],
+  );
+
+  for (const row of res.rows) map.set(row.key, row.id);
+  return map;
+}
+
+async function resolveCategoriesBulk(client, storeId, rawNames) {
+  const byLower = new Map();
+  for (const n of rawNames) {
+    const display = displayNameOrDefault(n, 'Default Category');
+    const key = display.toLowerCase();
+    if (!byLower.has(key)) byLower.set(key, display);
+  }
+
+  const map = new Map();
+  const names = [...byLower.values()];
+  if (!names.length) return map;
+
+  const slugs = names.map((n) => slugify(n) || 'default-category');
+
+  const res = await client.query(
+    `
+    INSERT INTO categories (name, store_id, slug)
+    SELECT t.name, $3::uuid, t.slug
+    FROM unnest($1::text[], $2::text[]) AS t(name, slug)
+    ON CONFLICT (store_id, LOWER(name)) DO UPDATE SET name = categories.name
+    RETURNING id, LOWER(name) AS key
+    `,
+    [names, slugs, storeId],
+  );
+
+  for (const row of res.rows) map.set(row.key, row.id);
+  return map;
+}
+
+// Fallback path (identical to the old per-row logic) used only if the bulk
+// resolve statement above throws - e.g. a rare cross-constraint slug clash.
+// Keeps the chunk resilient without making the common case pay for it.
+async function getOrCreateBrandRow(client, storeId, name) {
+  const brandName = displayNameOrDefault(name, 'Default Brand');
   const existing = await client.query(
     `SELECT id FROM brands WHERE store_id=$1 AND LOWER(name)=LOWER($2)`,
     [storeId, brandName],
   );
-
   if (existing.rows[0]) return existing.rows[0].id;
-
   const created = await client.query(
     `INSERT INTO brands(name, store_id) VALUES ($1,$2) RETURNING id`,
     [brandName, storeId],
   );
-
   return created.rows[0].id;
 }
 
-async function getOrCreateCategory(client, storeId, name) {
-  const categoryName =
-    name && String(name).trim() ? String(name).trim() : 'Default Category';
+async function getOrCreateCategoryRow(client, storeId, name) {
+  const categoryName = displayNameOrDefault(name, 'Default Category');
   const categorySlug = slugify(categoryName) || 'default-category';
-
   const existing = await client.query(
     `SELECT id FROM categories WHERE store_id=$1 AND LOWER(name)=LOWER($2)`,
     [storeId, categoryName],
   );
-
   if (existing.rows[0]) return existing.rows[0].id;
-
   const created = await client.query(
     `INSERT INTO categories(name, store_id, slug) VALUES ($1,$2,$3) RETURNING id`,
     [categoryName, storeId, categorySlug],
   );
-
   return created.rows[0].id;
 }
 
@@ -122,44 +202,54 @@ exports.handler = async (event) => {
   }
 
   const jobId = event.queryStringParameters?.job_id;
-
   if (!jobId) return json(400, { error: 'job_id required' });
 
   const client = await pool.connect();
 
   try {
-    /* ---------------- JOB ---------------- */
     const job = await getJobSnapshot(client, jobId);
     if (!job) return json(404, { error: 'Job not found' });
 
     const storeId = job.store_id;
 
-    /* ---------------- ROWS ---------------- */
-    const rowsRes = await client.query(
+    await client.query('BEGIN');
+
+    // SCALE + CORRECTNESS FIX: claim rows atomically with FOR UPDATE
+    // SKIP LOCKED instead of a plain SELECT ... WHERE status='pending'.
+    // The old query just read whatever was pending with no lock, so two
+    // overlapping invocations (a retried fetch, two open tabs, or a future
+    // move to concurrent workers) could both grab and process the same
+    // rows. This also folds the old separate "mark row processing"
+    // per-row UPDATE into the claim itself, saving another round trip
+    // per row.
+    const claimRes = await client.query(
       `
-      SELECT *
-      FROM import_job_rows
-      WHERE job_id=$1 AND status='pending'
-      ORDER BY row_number
-      LIMIT $2
+      WITH claimed AS (
+        SELECT id
+        FROM import_job_rows
+        WHERE job_id=$1 AND status='pending'
+        ORDER BY row_number
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+      )
+      UPDATE import_job_rows
+      SET status='processing'
+      WHERE id IN (SELECT id FROM claimed)
+      RETURNING *
       `,
       [jobId, CHUNK_SIZE],
     );
 
-    const rows = rowsRes.rows;
+    const rows = claimRes.rows;
 
-    // FIX: previously this branch never updated import_jobs.status, so
-    // the job stayed 'processing' forever in the DB, and the response
-    // omitted imported/updated/failed/totalRows entirely - the frontend
-    // rendered "undefined imported / undefined updated / undefined failed".
     if (rows.length === 0) {
       await client.query(
         `UPDATE import_jobs SET status='completed' WHERE id=$1 AND status != 'completed'`,
         [jobId],
       );
+      await client.query('COMMIT');
 
       const finalJob = await getJobSnapshot(client, jobId);
-
       return json(200, {
         status: 'completed',
         jobId,
@@ -171,42 +261,93 @@ exports.handler = async (event) => {
       });
     }
 
-    await client.query('BEGIN');
+    const parsedRows = rows.map((r) => ({
+      meta: r,
+      row: typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload,
+    }));
 
-    for (const r of rows) {
-      const row =
-        typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload;
+    /* ---------------- BULK BRAND/CATEGORY RESOLUTION ---------------- */
+    let brandMap = new Map();
+    let categoryMap = new Map();
+    let bulkLookupFailed = false;
 
-      // FIX: without a SAVEPOINT, a single failing query anywhere below
-      // (e.g. an ON CONFLICT clause referencing a constraint that doesn't
-      // exist yet) marks the ENTIRE transaction as aborted at the Postgres
-      // level. Every query after that point - for every remaining row in
-      // this chunk, including the catch block below trying to mark just
-      // THIS row as failed - then throws "current transaction is aborted,
-      // commands ignored until end of transaction block", which escapes
-      // this try/catch entirely and turns into a 500 for the whole chunk.
-      // A SAVEPOINT lets us roll back just this row's work on failure and
-      // keep processing the rest of the chunk normally.
+    await client.query('SAVEPOINT lookup_sp');
+    try {
+      brandMap = await resolveBrandsBulk(
+        client,
+        storeId,
+        parsedRows.map((p) => p.row.brand),
+      );
+      categoryMap = await resolveCategoriesBulk(
+        client,
+        storeId,
+        parsedRows.map((p) => p.row.category),
+      );
+      await client.query('RELEASE SAVEPOINT lookup_sp');
+    } catch (err) {
+      await client.query('ROLLBACK TO SAVEPOINT lookup_sp');
+      bulkLookupFailed = true;
+    }
+
+    /* ---------------- PARALLEL IMAGE RELOCATION ----------------
+     * SCALE: this used to run inside the per-row DB loop, so 50 rows with
+     * images meant 50 sequential Cloudinary round trips blocking the
+     * transaction the whole time. It's pure network I/O with no DB
+     * dependency (only needs the row's own slug), so it's pulled out and
+     * run with bounded concurrency before touching the DB at all.
+     */
+    await mapWithConcurrency(parsedRows, IMAGE_CONCURRENCY, async (p) => {
+      if (!p.row.imageUrl) {
+        p.resolvedImageUrl = null;
+        return;
+      }
+      const slug = slugify(p.row.name);
+      p.resolvedImageUrl = await relocateImage(
+        p.row.imagePublicId,
+        p.row.imageUrl,
+        storeId,
+        slug,
+      );
+    });
+
+    /* ---------------- PER-ROW DB WRITE ----------------
+     * Product/variant/image writes stay per-row (with a SAVEPOINT each)
+     * rather than bulked, deliberately: real-world spreadsheets are messy,
+     * and this keeps one bad row (bad price, missing name, a stray
+     * constraint violation) from taking out the whole chunk while still
+     * cutting out the two most expensive N+1 sources (brand/category
+     * lookups, serial image uploads).
+     */
+    for (const p of parsedRows) {
+      const { row, meta } = p;
+
       await client.query('SAVEPOINT row_sp');
 
       try {
-        await client.query(
-          `UPDATE import_job_rows SET status='processing' WHERE id=$1`,
-          [r.id],
-        );
-
         if (!row.name) throw new Error('Missing product name');
 
         const slug = slugify(row.name);
 
-        const brandId = await getOrCreateBrand(client, storeId, row.brand);
-        const categoryId = await getOrCreateCategory(
-          client,
-          storeId,
+        const brandKey = displayNameOrDefault(
+          row.brand,
+          'Default Brand',
+        ).toLowerCase();
+        const categoryKey = displayNameOrDefault(
           row.category,
-        );
+          'Default Category',
+        ).toLowerCase();
 
-        /* ---------------- PRODUCT (UPSERT SAFE) ---------------- */
+        const brandId = bulkLookupFailed
+          ? await getOrCreateBrandRow(client, storeId, row.brand)
+          : brandMap.get(brandKey);
+        const categoryId = bulkLookupFailed
+          ? await getOrCreateCategoryRow(client, storeId, row.category)
+          : categoryMap.get(categoryKey);
+
+        if (!brandId || !categoryId) {
+          throw new Error('Could not resolve brand/category for row');
+        }
+
         const productRes = await client.query(
           `
           INSERT INTO products(name, store_id, slug, brand_id, category_id)
@@ -223,13 +364,6 @@ exports.handler = async (event) => {
         const productId = productRes.rows[0].id;
         const variantSku = row.sku || slug;
 
-        // FIX: variant existed check before insert so we can tell whether
-        // this row is a new product/variant or an update to an existing
-        // one - the old code always incremented "imported" even when it
-        // was really updating a variant that already existed, and the
-        // plain INSERT with no ON CONFLICT meant re-running the same
-        // import file would throw a duplicate-key error (or create dupes
-        // if there was no unique constraint at all).
         const existingVariant = await client.query(
           `SELECT id FROM product_variants WHERE product_id=$1 AND sku=$2`,
           [productId, variantSku],
@@ -255,19 +389,7 @@ exports.handler = async (event) => {
 
         const variantId = variantRes.rows[0].id;
 
-        /* ---------------- IMAGE ---------------- */
-        let imageUrl = null;
-
-        if (row.imageUrl) {
-          imageUrl = await relocateImage(
-            row.imagePublicId,
-            row.imageUrl,
-            storeId,
-            slug,
-          );
-        }
-
-        if (imageUrl) {
+        if (p.resolvedImageUrl) {
           await client.query(
             `
             INSERT INTO product_images(variant_id, url, position)
@@ -275,14 +397,13 @@ exports.handler = async (event) => {
             ON CONFLICT (variant_id, position)
             DO UPDATE SET url = EXCLUDED.url
             `,
-            [variantId, imageUrl],
+            [variantId, p.resolvedImageUrl],
           );
         }
 
-        /* ---------------- MARK DONE ---------------- */
         await client.query(
           `UPDATE import_job_rows SET status='completed' WHERE id=$1`,
-          [r.id],
+          [meta.id],
         );
 
         await client.query(
@@ -298,9 +419,6 @@ exports.handler = async (event) => {
 
         await client.query('RELEASE SAVEPOINT row_sp');
       } catch (err) {
-        // Roll back only this row's work - the transaction as a whole is
-        // still healthy after this, so subsequent rows and the final
-        // COMMIT aren't affected.
         await client.query('ROLLBACK TO SAVEPOINT row_sp');
 
         await client.query(
@@ -309,7 +427,7 @@ exports.handler = async (event) => {
           SET status='failed', error=$2
           WHERE id=$1
           `,
-          [r.id, err.message],
+          [meta.id, err.message],
         );
 
         await client.query(

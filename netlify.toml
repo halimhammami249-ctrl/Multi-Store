@@ -4,3 +4,13 @@
 
 [functions]
   directory = "back/netlify/functions"
+
+# Public storefront API - every company website hits this, so the path
+# is intentionally simple and stable: /api/public/{domain}/{resource}.
+# The catch-all function (back/netlify/functions/public.js) parses the
+# domain/resource/slug itself from the forwarded path.
+[[redirects]]
+  from = "/api/public/*"
+  to = "/.netlify/functions/public/:splat"
+  status = 200
+  force = true
