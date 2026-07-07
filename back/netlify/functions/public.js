@@ -45,14 +45,17 @@ exports.handler = async (event) => {
     return json(405, { error: 'Method not allowed' });
   }
 
-  // netlify.toml redirects /api/public/* to this function with the rest
-  // of the path appended, so event.path looks like:
-  //   /.netlify/functions/public/test.com/products
-  //   /.netlify/functions/public/test.com/products/sample-product
-  const parts = event.path
-    .replace(/^\/\.netlify\/functions\/public\/?/, '')
-    .split('/')
-    .filter(Boolean);
+  // FIX: in production, a function reached via a rewrite redirect often
+  // receives the ORIGINAL request path in event.path
+  // (/api/public/test.com/products), not the rewritten target
+  // (/.netlify/functions/public/test.com/products) that netlify dev
+  // showed locally. Rather than guess which form we got, find the
+  // literal 'public' segment (this function's own name, which appears
+  // in both forms) and take everything after it - works regardless of
+  // which path shape Netlify hands us.
+  const allSegments = event.path.split('/').filter(Boolean);
+  const publicIndex = allSegments.lastIndexOf('public');
+  const parts = publicIndex >= 0 ? allSegments.slice(publicIndex + 1) : [];
 
   const [domain, resource, slug] = parts;
 
