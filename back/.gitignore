@@ -1,2 +1,13 @@
 # Local Netlify folder
 .netlify
+
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Unused - not a Deno project, remove if confirmed stale
+deno.lock
