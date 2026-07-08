@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
 
@@ -81,7 +81,9 @@ function readTokenFromCookie(cookieHeader = '') {
 }
 
 async function login(email, password, remember = false) {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const normalizedEmail = String(email || '')
+    .trim()
+    .toLowerCase();
 
   if (!normalizedEmail || !password) {
     const err = new Error('Email and password are required');
@@ -114,7 +116,9 @@ async function login(email, password, remember = false) {
     throw err;
   }
 
-  await pool.query('UPDATE admin_users SET last_login = NOW() WHERE id = $1;', [user.id]);
+  await pool.query('UPDATE admin_users SET last_login = NOW() WHERE id = $1;', [
+    user.id,
+  ]);
 
   const token = jwt.sign(
     { sub: user.id, email: user.email, role: user.role },

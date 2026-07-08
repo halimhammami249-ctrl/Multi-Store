@@ -18,6 +18,11 @@
   "homepage": "https://github.com/halimhammami249-ctrl/Multi-Store#readme",
   "description": "",
   "dependencies": {
-    "@netlify/database": "^1.1.0"
+    "@netlify/database": "^1.1.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.10.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0",
+    "xlsx": "^0.18.5"
   }
 }
