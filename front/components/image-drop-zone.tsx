@@ -84,8 +84,10 @@ async function runPool<T, R>(
 
 export function ImageDropZone({
   onUploaded,
+  onUploadingChange,
 }: {
   onUploaded: (map: ImageMap) => void;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   const [imageMap, setImageMap] = useState<ImageMap>({});
   const [loading, setLoading] = useState(false);
@@ -105,6 +107,7 @@ export function ImageDropZone({
     setLoading(true);
     setError('');
     setProgress({ done: 0, total: images.length });
+    onUploadingChange?.(true);
 
     try {
       // One signature covers the whole batch - it's just server-side
@@ -150,6 +153,7 @@ export function ImageDropZone({
     } finally {
       setLoading(false);
       setProgress(null);
+      onUploadingChange?.(false);
     }
   };
 
