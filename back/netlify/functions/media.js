@@ -1,7 +1,14 @@
-const { getMedia, createMedia, deleteMedia } = require('../../services/mediaService');
+const {
+  getMedia,
+  createMedia,
+  deleteMedia,
+} = require('../../services/mediaService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -34,7 +41,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: media ? 201 : 404,
-        body: JSON.stringify(media ? { data: media } : { error: 'Variant not found' }),
+        body: JSON.stringify(
+          media ? { data: media } : { error: 'Variant not found' },
+        ),
       };
     }
 
@@ -52,7 +61,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: media ? 200 : 404,
-        body: JSON.stringify(media ? { data: media } : { error: 'Image not found' }),
+        body: JSON.stringify(
+          media ? { data: media } : { error: 'Image not found' },
+        ),
       };
     }
 
@@ -64,8 +75,8 @@ exports.handler = async (event) => {
     console.error(err);
 
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'server error' }),
+      statusCode: err.statusCode || 500,
+      body: JSON.stringify({ error: err.message || 'server error' }),
     };
   }
 };

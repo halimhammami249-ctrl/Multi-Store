@@ -2,9 +2,12 @@ const {
   getPlatformStats,
   getStoreStats,
 } = require('../../services/dashboardService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     if (event.httpMethod !== 'GET') {
       return {
         statusCode: 405,
@@ -28,9 +31,9 @@ exports.handler = async (event) => {
     console.error(err);
 
     return {
-      statusCode: 500,
+      statusCode: err.statusCode || 500,
       body: JSON.stringify({
-        error: 'server error',
+        error: err.message || 'server error',
       }),
     };
   }

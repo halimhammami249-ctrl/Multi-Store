@@ -1,7 +1,13 @@
-const { getInventory, updateInventory } = require('../../services/inventoryService');
+const {
+  getInventory,
+  updateInventory,
+} = require('../../services/inventoryService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -26,15 +32,25 @@ exports.handler = async (event) => {
       if (!body.variantId || typeof body.stock !== 'number') {
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: 'variantId and numeric stock required' }),
+          body: JSON.stringify({
+            error: 'variantId and numeric stock required',
+          }),
         };
       }
 
-      const variant = await updateInventory(storeId, body.variantId, body.stock);
+      const variant = await updateInventory(
+        storeId,
+        body.variantId,
+        body.stock,
+      );
 
       return {
         statusCode: variant ? 200 : 404,
-        body: JSON.stringify(variant ? { data: variant } : { error: 'Variant not found in this store' }),
+        body: JSON.stringify(
+          variant
+            ? { data: variant }
+            : { error: 'Variant not found in this store' },
+        ),
       };
     }
 
@@ -46,8 +62,8 @@ exports.handler = async (event) => {
     console.error(err);
 
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'server error' }),
+      statusCode: err.statusCode || 500,
+      body: JSON.stringify({ error: err.message || 'server error' }),
     };
   }
 };

@@ -1,7 +1,15 @@
-const { getBrands, createBrand, updateBrand, deleteBrand } = require('../../services/brandService');
+const {
+  getBrands,
+  createBrand,
+  updateBrand,
+  deleteBrand,
+} = require('../../services/brandService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -51,7 +59,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: brand ? 200 : 404,
-        body: JSON.stringify(brand ? { data: brand } : { error: 'Brand not found' }),
+        body: JSON.stringify(
+          brand ? { data: brand } : { error: 'Brand not found' },
+        ),
       };
     }
 

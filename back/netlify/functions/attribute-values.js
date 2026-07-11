@@ -3,9 +3,11 @@ const {
   getAttributeValues,
   updateAttributeValue,
 } = require('../../services/attributeService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -77,7 +79,11 @@ exports.handler = async (event) => {
 
       return {
         statusCode: valueRow ? 200 : 404,
-        body: JSON.stringify(valueRow ? { data: valueRow } : { error: 'Attribute value not found' }),
+        body: JSON.stringify(
+          valueRow
+            ? { data: valueRow }
+            : { error: 'Attribute value not found' },
+        ),
       };
     }
 

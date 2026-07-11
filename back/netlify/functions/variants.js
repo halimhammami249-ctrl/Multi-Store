@@ -1,7 +1,14 @@
-const { getVariants, createVariant, updateVariant } = require('../../services/variantService');
+const {
+  getVariants,
+  createVariant,
+  updateVariant,
+} = require('../../services/variantService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     const storeId = event.queryStringParameters?.store_id;
     const productId = event.queryStringParameters?.product_id;
 
@@ -48,7 +55,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: variant ? 200 : 404,
-        body: JSON.stringify(variant ? { data: variant } : { error: 'Variant not found' }),
+        body: JSON.stringify(
+          variant ? { data: variant } : { error: 'Variant not found' },
+        ),
       };
     }
 

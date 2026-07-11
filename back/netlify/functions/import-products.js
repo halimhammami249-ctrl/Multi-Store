@@ -1,4 +1,5 @@
 const pool = require('../../db');
+const { requireAdmin } = require('../../services/authService');
 
 function json(statusCode, body) {
   return {
@@ -11,6 +12,14 @@ function json(statusCode, body) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return json(405, { error: 'Method not allowed' });
+  }
+
+  try {
+    await requireAdmin(event);
+  } catch (err) {
+    return json(err.statusCode || 401, {
+      error: err.message || 'Not authenticated',
+    });
   }
 
   // FIX: route.ts sends `?store_id=` (snake_case) but this was reading

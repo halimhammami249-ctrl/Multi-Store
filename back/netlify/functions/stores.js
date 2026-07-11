@@ -1,7 +1,14 @@
-const { getStores, createStore, deleteStore } = require('../../services/storeService');
+const {
+  getStores,
+  createStore,
+  deleteStore,
+} = require('../../services/storeService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     if (event.httpMethod === 'GET') {
       const stores = await getStores();
 
@@ -46,7 +53,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: store ? 200 : 404,
-        body: JSON.stringify(store ? { data: store } : { error: 'Store not found' }),
+        body: JSON.stringify(
+          store ? { data: store } : { error: 'Store not found' },
+        ),
       };
     }
 
@@ -60,9 +69,9 @@ exports.handler = async (event) => {
     console.error(err);
 
     return {
-      statusCode: 500,
+      statusCode: err.statusCode || 500,
       body: JSON.stringify({
-        error: 'Server error',
+        error: err.message || 'Server error',
       }),
     };
   }

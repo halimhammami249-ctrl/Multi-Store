@@ -1,7 +1,15 @@
-const { getCategories, createCategory, updateCategory, deleteCategory } = require('../../services/categoryService');
+const {
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} = require('../../services/categoryService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -44,7 +52,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: category ? 200 : 404,
-        body: JSON.stringify(category ? { data: category } : { error: 'Category not found' }),
+        body: JSON.stringify(
+          category ? { data: category } : { error: 'Category not found' },
+        ),
       };
     }
 
@@ -62,7 +72,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: category ? 200 : 404,
-        body: JSON.stringify(category ? { data: category } : { error: 'Category not found' }),
+        body: JSON.stringify(
+          category ? { data: category } : { error: 'Category not found' },
+        ),
       };
     }
 

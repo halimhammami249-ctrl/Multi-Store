@@ -5,9 +5,12 @@ const {
   getAttributeValues,
   deleteAttribute,
 } = require('../../services/attributeService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -57,7 +60,9 @@ exports.handler = async (event) => {
 
       return {
         statusCode: attribute ? 200 : 404,
-        body: JSON.stringify(attribute ? { data: attribute } : { error: 'Attribute not found' }),
+        body: JSON.stringify(
+          attribute ? { data: attribute } : { error: 'Attribute not found' },
+        ),
       };
     }
 
@@ -69,8 +74,8 @@ exports.handler = async (event) => {
     console.error(err);
 
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'server error' }),
+      statusCode: err.statusCode || 500,
+      body: JSON.stringify({ error: err.message || 'server error' }),
     };
   }
 };

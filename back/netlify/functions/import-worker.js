@@ -1,5 +1,6 @@
 const pool = require('../../db');
 const cloudinary = require('cloudinary').v2;
+const { requireAdmin } = require('../../services/authService');
 
 // SCALE: bumped from 20 now that brand/category lookups are batched and
 // image relocation is parallelized - each row does far less serial work,
@@ -199,6 +200,14 @@ async function getJobSnapshot(client, jobId) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return json(405, { error: 'Method not allowed' });
+  }
+
+  try {
+    await requireAdmin(event);
+  } catch (err) {
+    return json(err.statusCode || 401, {
+      error: err.message || 'Not authenticated',
+    });
   }
 
   const jobId = event.queryStringParameters?.job_id;

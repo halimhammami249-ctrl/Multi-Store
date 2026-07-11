@@ -2,9 +2,11 @@ const {
   linkVariantAttribute,
   getVariantAttributes,
 } = require('../../services/variantAttributeService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
     const storeId = event.queryStringParameters?.store_id;
     const variantId = event.queryStringParameters?.variant_id;
 

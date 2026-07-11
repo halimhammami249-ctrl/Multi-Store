@@ -3,9 +3,12 @@ const {
   updateProduct,
   deleteProduct,
 } = require('../../services/productService');
+const { requireAdmin } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
+    await requireAdmin(event);
+
     const storeId = event.queryStringParameters?.store_id;
     const productId = event.queryStringParameters?.id;
 

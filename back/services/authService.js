@@ -160,11 +160,25 @@ async function currentUser(cookieHeader) {
   return verifyToken(readTokenFromCookie(cookieHeader));
 }
 
+async function requireAdmin(event) {
+  const cookieHeader = event?.headers?.cookie || event?.headers?.Cookie || '';
+  const user = await currentUser(cookieHeader);
+
+  if (!user) {
+    const err = new Error('Not authenticated');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  return user;
+}
+
 module.exports = {
   COOKIE_NAME,
   clearAuthCookie,
   currentUser,
   login,
   readTokenFromCookie,
+  requireAdmin,
   verifyToken,
 };
