@@ -9,8 +9,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/brands?store_id=${storeId}`,
+      `${process.env.URL || new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
+        headers: { Cookie: request.headers.get('cookie') || '' },
         cache: 'no-store',
       },
     );
@@ -43,11 +44,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/brands?store_id=${storeId}`,
+      `${process.env.URL || new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Cookie: request.headers.get('cookie') || '',
         },
         body: JSON.stringify(body),
       },
@@ -81,11 +83,12 @@ export async function PUT(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/brands?store_id=${storeId}`,
+      `${process.env.URL || new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          Cookie: request.headers.get('cookie') || '',
         },
         body: JSON.stringify(body),
       },
@@ -119,11 +122,12 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions/brands?store_id=${storeId}`,
+      `${process.env.URL || new URL(request.url).origin}/.netlify/functions/brands?store_id=${storeId}`,
       {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          Cookie: request.headers.get('cookie') || '',
         },
         body: JSON.stringify(body),
       },

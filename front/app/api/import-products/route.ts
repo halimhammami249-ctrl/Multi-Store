@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 function getFunctionsBase(request: NextRequest) {
   return (
     process.env.NETLIFY_FUNCTION_URL ||
-    `${(process.env.URL || new URL(request.url).origin)}/.netlify/functions`
+    `${process.env.URL || new URL(request.url).origin}/.netlify/functions`
   );
 }
 
@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Cookie: request.headers.get('cookie') || '',
         },
         body: JSON.stringify({ rows }),
       },
@@ -65,7 +66,10 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(
       `${NETLIFY_URL}/import-worker?job_id=${encodeURIComponent(jobId)}`,
-      { method: 'POST' },
+      {
+        method: 'POST',
+        headers: { Cookie: request.headers.get('cookie') || '' },
+      },
     );
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
