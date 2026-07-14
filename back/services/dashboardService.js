@@ -1,4 +1,4 @@
-const pool = require("../db");
+const pool = require('../db');
 
 async function getPlatformStats() {
   const result = await pool.query(`
@@ -17,7 +17,20 @@ async function getPlatformStats() {
       (
         SELECT COALESCE(SUM(stock),0)
         FROM product_variants
-      ) AS "totalInventory";
+      ) AS "totalInventory",
+      (
+        SELECT COALESCE(JSON_AGG(activity), '[]')
+        FROM (
+          SELECT
+            id,
+            name,
+            (created_at >= updated_at - INTERVAL '2 seconds') AS "isNew",
+            GREATEST(created_at, updated_at) AS "at"
+          FROM stores
+          ORDER BY GREATEST(created_at, updated_at) DESC
+          LIMIT 5
+        ) activity
+      ) AS "recentActivity";
   `);
 
   return result.rows[0];
@@ -52,9 +65,24 @@ async function getStoreStats(storeId) {
         JOIN products p
           ON p.id=pv.product_id
         WHERE p.store_id=$1
-      ) AS "totalInventory";
+      ) AS "totalInventory",
+
+      (
+        SELECT COALESCE(JSON_AGG(activity), '[]')
+        FROM (
+          SELECT
+            id,
+            name,
+            (created_at >= updated_at - INTERVAL '2 seconds') AS "isNew",
+            GREATEST(created_at, updated_at) AS "at"
+          FROM products
+          WHERE store_id=$1
+          ORDER BY GREATEST(created_at, updated_at) DESC
+          LIMIT 5
+        ) activity
+      ) AS "recentActivity";
 `,
-    [storeId]
+    [storeId],
   );
 
   return result.rows[0];

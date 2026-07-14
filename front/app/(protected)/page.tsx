@@ -14,7 +14,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/lib/store-context';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 export const dynamic = 'force-dynamic';
+
+interface ActivityItem {
+  id: string;
+  name: string;
+  isNew: boolean;
+  at: string;
+}
 
 interface DashboardStats {
   totalStores?: string | number;
@@ -25,10 +33,26 @@ interface DashboardStats {
   totalCategories?: string | number;
   lowStock: string | number;
   totalInventory: string | number;
+  recentActivity?: ActivityItem[];
+}
+
+function timeAgo(isoString: string) {
+  const seconds = Math.floor(
+    (Date.now() - new Date(isoString).getTime()) / 1000,
+  );
+
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
 export default function Dashboard() {
   const { selectedStore } = useStore();
+  const router = useRouter();
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsData, setStatsData] = useState<DashboardStats | null>(null);
 
@@ -203,18 +227,23 @@ export default function Dashboard() {
               Quick Actions
             </h2>
             <div className="flex flex-wrap gap-3">
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => router.push('/products')}
+              >
                 Add New Product
               </Button>
               <Button
                 variant="outline"
                 className="border-border hover:bg-secondary"
+                onClick={() => router.push('/inventory')}
               >
                 View Inventory
               </Button>
               <Button
                 variant="outline"
                 className="border-border hover:bg-secondary"
+                onClick={() => router.push('/categories')}
               >
                 Manage Categories
               </Button>
@@ -226,12 +255,16 @@ export default function Dashboard() {
               Platform Actions
             </h2>
             <div className="flex flex-wrap gap-3">
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => router.push('/stores')}
+              >
                 Create New Store
               </Button>
               <Button
                 variant="outline"
                 className="border-border hover:bg-secondary"
+                onClick={() => router.push('/stores')}
               >
                 View All Stores
               </Button>
@@ -244,26 +277,46 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold mb-4 text-foreground">
             Recent Activity
           </h2>
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between py-3 border-b border-border last:border-b-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {selectedStore
-                      ? `Product "${`Product ${i}`}" updated`
-                      : `Store "${`Store ${i}`}" created`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
+          {statsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-12 bg-secondary/50 rounded animate-pulse"
+                />
+              ))}
+            </div>
+          ) : statsData?.recentActivity &&
+            statsData.recentActivity.length > 0 ? (
+            <div className="space-y-3">
+              {statsData.recentActivity.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between py-3 border-b border-border last:border-b-0"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {selectedStore
+                        ? `Product "${item.name}" ${item.isNew ? 'added' : 'updated'}`
+                        : `Store "${item.name}" ${item.isNew ? 'created' : 'updated'}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {timeAgo(item.at)}
+                    </p>
+                  </div>
+                  <span className="text-xs bg-secondary text-foreground px-2 py-1 rounded">
+                    {item.isNew ? 'New' : 'Updated'}
+                  </span>
                 </div>
-                <span className="text-xs bg-secondary text-foreground px-2 py-1 rounded">
-                  {selectedStore ? 'Updated' : 'Created'}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {selectedStore
+                ? 'No products yet. Add your first product to see activity here.'
+                : 'No stores yet. Create your first store to see activity here.'}
+            </p>
+          )}
         </div>
       </div>
     </DashboardLayout>

@@ -43,12 +43,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('selectedStoreId');
-
-    if (saved) {
-      setSelectedStoreId(saved);
-    }
-
     loadCurrentUser();
     loadStores();
   }, []);
@@ -74,36 +68,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  useEffect(() => {
-    if (stores.length === 0) return;
-
-    // Already resolved (e.g. user manually switched stores) - don't stomp it.
-    if (selectedStore) return;
-
-    const saved = selectedStoreId
-      ? stores.find((s) => s.id === selectedStoreId)
-      : undefined;
-
-    handleSetSelectedStore(saved || stores[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stores]);
-
-  useEffect(() => {
-    if (selectedStoreId) {
-      localStorage.setItem('selectedStoreId', selectedStoreId);
-    } else {
-      localStorage.removeItem('selectedStoreId');
-    }
-  }, [selectedStoreId]);
-
   const handleSetSelectedStore = (store: Store | null) => {
     setSelectedStore(store);
-
-    if (store) {
-      setSelectedStoreId(store.id);
-    } else {
-      setSelectedStoreId(null);
-    }
+    setSelectedStoreId(store ? store.id : null);
   };
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
