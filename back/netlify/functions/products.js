@@ -1,10 +1,8 @@
 const { getProducts, createProduct } = require('../../services/productService');
-const { requireAdmin } = require('../../services/authService');
+const { requireStoreAccess } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
-    await requireAdmin(event);
-
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -15,6 +13,14 @@ exports.handler = async (event) => {
         }),
       };
     }
+
+    const action =
+      event.httpMethod === 'GET'
+        ? 'read'
+        : event.httpMethod === 'DELETE'
+          ? 'delete'
+          : 'write';
+    await requireStoreAccess(event, storeId, action);
 
     if (event.httpMethod === 'GET') {
       const products = await getProducts(storeId);

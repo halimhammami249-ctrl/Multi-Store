@@ -1,6 +1,9 @@
 const pool = require('../../db');
 const cloudinary = require('cloudinary').v2;
-const { requireAdmin } = require('../../services/authService');
+const {
+  requireAdmin,
+  requireStoreAccess,
+} = require('../../services/authService');
 
 // SCALE: bumped from 20 now that brand/category lookups are batched and
 // image relocation is parallelized - each row does far less serial work,
@@ -218,6 +221,8 @@ exports.handler = async (event) => {
   try {
     const job = await getJobSnapshot(client, jobId);
     if (!job) return json(404, { error: 'Job not found' });
+
+    await requireStoreAccess(event, job.store_id, 'write');
 
     const storeId = job.store_id;
 
@@ -467,7 +472,7 @@ exports.handler = async (event) => {
     });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
-    return json(500, { error: err.message });
+    return json(err.statusCode || 500, { error: err.message });
   } finally {
     client.release();
   }

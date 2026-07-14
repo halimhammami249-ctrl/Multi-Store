@@ -3,11 +3,10 @@ const {
   getAttributeValues,
   updateAttributeValue,
 } = require('../../services/attributeService');
-const { requireAdmin } = require('../../services/authService');
+const { requireStoreAccess } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
-    await requireAdmin(event);
     const storeId = event.queryStringParameters?.store_id;
 
     if (!storeId) {
@@ -16,6 +15,9 @@ exports.handler = async (event) => {
         body: JSON.stringify({ error: 'store_id required' }),
       };
     }
+
+    const action = event.httpMethod === 'GET' ? 'read' : 'write';
+    await requireStoreAccess(event, storeId, action);
 
     // ======================
     // POST (CREATE VALUE)

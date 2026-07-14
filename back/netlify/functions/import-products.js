@@ -1,5 +1,5 @@
 const pool = require('../../db');
-const { requireAdmin } = require('../../services/authService');
+const { requireStoreAccess } = require('../../services/authService');
 
 function json(statusCode, body) {
   return {
@@ -14,14 +14,6 @@ exports.handler = async (event) => {
     return json(405, { error: 'Method not allowed' });
   }
 
-  try {
-    await requireAdmin(event);
-  } catch (err) {
-    return json(err.statusCode || 401, {
-      error: err.message || 'Not authenticated',
-    });
-  }
-
   // FIX: route.ts sends `?store_id=` (snake_case) but this was reading
   // `event.queryStringParameters?.storeId` (camelCase). The param was
   // always undefined, so every import request 400'd with "storeId
@@ -31,6 +23,14 @@ exports.handler = async (event) => {
 
   if (!storeId) {
     return json(400, { error: 'storeId required' });
+  }
+
+  try {
+    await requireStoreAccess(event, storeId, 'write');
+  } catch (err) {
+    return json(err.statusCode || 401, {
+      error: err.message || 'Not authenticated',
+    });
   }
 
   let body;

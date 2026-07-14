@@ -173,12 +173,85 @@ async function requireAdmin(event) {
   return user;
 }
 
+async function requireSuperAdmin(event) {
+  const user = await requireAdmin(event);
+
+  if (user.role !== 'SUPER_ADMIN') {
+    const err = new Error('Forbidden: this action requires a super admin');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return user;
+}
+
+async function getAccessibleStoreIds(userId) {
+  const result = await pool.query(
+    'SELECT store_id FROM admin_user_stores WHERE admin_user_id = $1;',
+    [userId],
+  );
+  return result.rows.map((row) => row.store_id);
+}
+
+async function hasStoreAccess(userId, storeId) {
+  const result = await pool.query(
+    'SELECT 1 FROM admin_user_stores WHERE admin_user_id = $1 AND store_id = $2 LIMIT 1;',
+    [userId, storeId],
+  );
+  return result.rowCount > 0;
+}
+
+/**
+ * Guards an action scoped to a single store. SUPER_ADMIN always passes.
+ * Everyone else must have been granted this specific store, and VIEWERs
+ * are blocked from anything but 'read'. Only MANAGERs can 'delete'.
+ *
+ * action: 'read' | 'write' | 'delete'
+ */
+async function requireStoreAccess(event, storeId, action = 'read') {
+  const user = await requireAdmin(event);
+
+  if (user.role === 'SUPER_ADMIN') return user;
+
+  if (!storeId) {
+    const err = new Error('store_id is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const allowed = await hasStoreAccess(user.id, storeId);
+
+  if (!allowed) {
+    const err = new Error('Forbidden: you do not have access to this store');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (action !== 'read' && user.role === 'VIEWER') {
+    const err = new Error('Forbidden: your role is read-only');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (action === 'delete' && user.role !== 'MANAGER') {
+    const err = new Error('Forbidden: only managers can delete');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return user;
+}
+
 module.exports = {
   COOKIE_NAME,
   clearAuthCookie,
   currentUser,
+  getAccessibleStoreIds,
+  hasStoreAccess,
   login,
   readTokenFromCookie,
   requireAdmin,
+  requireStoreAccess,
+  requireSuperAdmin,
   verifyToken,
 };

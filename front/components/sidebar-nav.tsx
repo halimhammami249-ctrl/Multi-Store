@@ -1,8 +1,8 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import {
   BarChart3,
   Package,
@@ -17,14 +17,16 @@ import {
   ShoppingCart,
   Users,
   TrendingUp,
-} from 'lucide-react'
-import { useState } from 'react'
-import { useStore } from '@/lib/store-context'
+  ShieldCheck,
+} from 'lucide-react';
+import { useState } from 'react';
+import { useStore } from '@/lib/store-context';
 
 const superAdminItems = [
   { href: '/', icon: BarChart3, label: 'Dashboard' },
   { href: '/stores', icon: Building2, label: 'Stores' },
-]
+  { href: '/admin-users', icon: ShieldCheck, label: 'Admins' },
+];
 
 const storeItems = [
   { href: '/', icon: BarChart3, label: 'Dashboard', enabled: true },
@@ -38,16 +40,16 @@ const storeItems = [
   { href: '/orders', icon: ShoppingCart, label: 'Orders', enabled: false },
   { href: '/customers', icon: Users, label: 'Customers', enabled: false },
   { href: '/analytics', icon: TrendingUp, label: 'Analytics', enabled: false },
-]
+];
 
 export function SidebarNav() {
-  const pathname = usePathname()
-  const [isOpen, setIsOpen] = useState(false)
-  const { selectedStore, isSuperAdmin } = useStore()
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
+  const { selectedStore, isSuperAdmin } = useStore();
 
   // Determine which nav items to show
-  const isInStoreWorkspace = selectedStore !== null
-  const navItems = isInStoreWorkspace ? storeItems : superAdminItems
+  const isInStoreWorkspace = selectedStore !== null;
+  const navItems = isInStoreWorkspace ? storeItems : superAdminItems;
 
   return (
     <>
@@ -71,7 +73,7 @@ export function SidebarNav() {
       <aside
         className={cn(
           'fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300 md:translate-x-0 z-40',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+          isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {/* Logo */}
@@ -84,9 +86,10 @@ export function SidebarNav() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-2">
           {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-            const isDisabled = 'enabled' in item && !item.enabled && isInStoreWorkspace
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            const isDisabled =
+              'enabled' in item && !item.enabled && isInStoreWorkspace;
 
             return (
               <Link
@@ -99,14 +102,18 @@ export function SidebarNav() {
                     ? 'opacity-50 cursor-not-allowed text-sidebar-foreground'
                     : isActive
                       ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent',
                 )}
               >
                 <Icon size={20} />
                 <span className="font-medium">{item.label}</span>
-                {isDisabled && <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded">Soon</span>}
+                {isDisabled && (
+                  <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded">
+                    Soon
+                  </span>
+                )}
               </Link>
-            )
+            );
           })}
         </nav>
 
@@ -119,5 +126,5 @@ export function SidebarNav() {
       {/* Main content spacer */}
       <div className="hidden md:block w-64" />
     </>
-  )
+  );
 }

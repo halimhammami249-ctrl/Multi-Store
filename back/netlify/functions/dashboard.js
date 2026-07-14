@@ -2,12 +2,13 @@ const {
   getPlatformStats,
   getStoreStats,
 } = require('../../services/dashboardService');
-const { requireAdmin } = require('../../services/authService');
+const {
+  requireStoreAccess,
+  requireSuperAdmin,
+} = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
-    await requireAdmin(event);
-
     if (event.httpMethod !== 'GET') {
       return {
         statusCode: 405,
@@ -18,6 +19,13 @@ exports.handler = async (event) => {
     }
 
     const storeId = event.queryStringParameters?.storeId;
+
+    if (storeId) {
+      await requireStoreAccess(event, storeId, 'read');
+    } else {
+      // Platform-wide stats span every store - only a super admin should see them.
+      await requireSuperAdmin(event);
+    }
 
     const stats = storeId
       ? await getStoreStats(storeId)

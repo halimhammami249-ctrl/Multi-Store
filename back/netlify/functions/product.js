@@ -3,12 +3,10 @@ const {
   updateProduct,
   deleteProduct,
 } = require('../../services/productService');
-const { requireAdmin } = require('../../services/authService');
+const { requireStoreAccess } = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
-    await requireAdmin(event);
-
     const storeId = event.queryStringParameters?.store_id;
     const productId = event.queryStringParameters?.id;
 
@@ -20,6 +18,14 @@ exports.handler = async (event) => {
         }),
       };
     }
+
+    const action =
+      event.httpMethod === 'GET'
+        ? 'read'
+        : event.httpMethod === 'DELETE'
+          ? 'delete'
+          : 'write';
+    await requireStoreAccess(event, storeId, action);
 
     // =========================
     // GET PRODUCT

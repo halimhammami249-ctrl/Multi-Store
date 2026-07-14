@@ -15,6 +15,13 @@ export interface Store {
   updated_at: string;
 }
 
+interface CurrentUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: 'SUPER_ADMIN' | 'MANAGER' | 'EDITOR' | 'VIEWER';
+}
+
 interface StoreContextType {
   selectedStoreId: string | null;
   selectedStore: Store | null;
@@ -22,6 +29,9 @@ interface StoreContextType {
   stores: Store[];
   setStores: (stores: Store[]) => void;
   isSuperAdmin: boolean;
+  currentUser: CurrentUser | null;
+  canWrite: boolean;
+  canDelete: boolean;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -30,6 +40,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('selectedStoreId');
@@ -38,23 +49,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setSelectedStoreId(saved);
     }
 
-    // FIX: this used to read `selectedStoreId` here, but that's a stale
-    // closure over the value from the render that scheduled this effect
-    // (always null on mount) - setSelectedStoreId(saved) above doesn't
-    // apply until the next render. So loadStores() always overwrote the
-    // saved selection with stores[0], and it did so by calling the raw
-    // setSelectedStore() instead of handleSetSelectedStore(), which meant
-    // selectedStoreId (the string) never got updated to match
-    // selectedStore (the object) - the two fell out of sync, and the
-    // "remember last store" localStorage effect ended up deleting the
-    // saved id on every load.
-    //
-    // Fix: loadStores() no longer decides the fallback itself. It just
-    // loads stores; a separate effect below decides the initial selection
-    // once both `stores` and `saved` are known, and always goes through
-    // handleSetSelectedStore so both pieces of state stay in sync.
+    loadCurrentUser();
     loadStores();
   }, []);
+
+  async function loadCurrentUser() {
+    try {
+      const response = await fetch('/api/auth/me');
+      const result = await response.json();
+      setCurrentUser(result.data || null);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   async function loadStores() {
     try {
@@ -99,6 +106,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const canWrite =
+    isSuperAdmin ||
+    currentUser?.role === 'MANAGER' ||
+    currentUser?.role === 'EDITOR';
+  const canDelete = isSuperAdmin || currentUser?.role === 'MANAGER';
+
   return (
     <StoreContext.Provider
       value={{
@@ -107,7 +121,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setSelectedStore: handleSetSelectedStore,
         stores,
         setStores,
-        isSuperAdmin: true,
+        isSuperAdmin,
+        currentUser,
+        canWrite,
+        canDelete,
       }}
     >
       {children}

@@ -3,23 +3,40 @@ const {
   createStore,
   deleteStore,
 } = require('../../services/storeService');
-const { requireAdmin } = require('../../services/authService');
+const {
+  requireAdmin,
+  requireSuperAdmin,
+  getAccessibleStoreIds,
+} = require('../../services/authService');
 
 exports.handler = async (event) => {
   try {
-    await requireAdmin(event);
-
     if (event.httpMethod === 'GET') {
+      const user = await requireAdmin(event);
       const stores = await getStores();
+
+      const visibleStores =
+        user.role === 'SUPER_ADMIN'
+          ? stores
+          : await (async () => {
+              const accessibleIds = new Set(
+                await getAccessibleStoreIds(user.id),
+              );
+              return stores.filter((s) => accessibleIds.has(s.id));
+            })();
 
       return {
         statusCode: 200,
         body: JSON.stringify({
           success: true,
-          data: stores,
+          data: visibleStores,
         }),
       };
     }
+
+    // Creating and deleting stores is a platform-level action - only a
+    // super admin can do it, regardless of what stores someone manages.
+    await requireSuperAdmin(event);
 
     if (event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
