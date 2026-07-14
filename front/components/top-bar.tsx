@@ -1,18 +1,20 @@
-'use client'
+'use client';
 
-import { Bell, Settings, ChevronDown, Building2, LogOut } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useStore } from '@/lib/store-context'
-import { useState } from 'react'
+import { Bell, Settings, ChevronDown, Building2, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useStore } from '@/lib/store-context';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export function TopBar() {
-  const { selectedStore, stores, setSelectedStore, isSuperAdmin } = useStore()
-  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false)
+  const { selectedStore, stores, setSelectedStore, isSuperAdmin } = useStore();
+  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
+  const router = useRouter();
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    window.location.href = '/login'
-  }
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  };
 
   return (
     <header className="sticky top-0 z-30 w-full bg-card border-b border-border">
@@ -39,8 +41,8 @@ export function TopBar() {
                     <button
                       key={store.id}
                       onClick={() => {
-                        setSelectedStore(store)
-                        setIsStoreDropdownOpen(false)
+                        setSelectedStore(store);
+                        setIsStoreDropdownOpen(false);
                       }}
                       className={`w-full text-left px-4 py-2 text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
                         selectedStore.id === store.id
@@ -56,8 +58,8 @@ export function TopBar() {
                   )}
                   <button
                     onClick={() => {
-                      setSelectedStore(null)
-                      setIsStoreDropdownOpen(false)
+                      setSelectedStore(null);
+                      setIsStoreDropdownOpen(false);
                     }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-secondary rounded-b-lg"
                   >
@@ -86,6 +88,8 @@ export function TopBar() {
             variant="ghost"
             size="icon"
             className="hover:bg-secondary"
+            onClick={() => router.push('/account')}
+            title="Account settings"
           >
             <Settings size={20} />
           </Button>
@@ -102,5 +106,5 @@ export function TopBar() {
         </div>
       </div>
     </header>
-  )
+  );
 }

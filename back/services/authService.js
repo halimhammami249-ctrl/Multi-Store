@@ -160,6 +160,44 @@ async function currentUser(cookieHeader) {
   return verifyToken(readTokenFromCookie(cookieHeader));
 }
 
+async function changeOwnPassword(userId, currentPassword, newPassword) {
+  if (!currentPassword || !newPassword) {
+    const err = new Error('Current and new password are required');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (newPassword.length < 8) {
+    const err = new Error('New password must be at least 8 characters');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const result = await pool.query(
+    'SELECT id, password_hash FROM admin_users WHERE id = $1 LIMIT 1;',
+    [userId],
+  );
+  const user = result.rows[0];
+
+  if (!user) {
+    const err = new Error('Account not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const currentOk = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!currentOk) {
+    const err = new Error('Current password is incorrect');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  await pool.query(
+    'UPDATE admin_users SET password_hash = $2, updated_at = NOW() WHERE id = $1;',
+    [userId, newHash],
+  );
+}
+
 async function requireAdmin(event) {
   const cookieHeader = event?.headers?.cookie || event?.headers?.Cookie || '';
   const user = await currentUser(cookieHeader);
@@ -244,6 +282,7 @@ async function requireStoreAccess(event, storeId, action = 'read') {
 
 module.exports = {
   COOKIE_NAME,
+  changeOwnPassword,
   clearAuthCookie,
   currentUser,
   getAccessibleStoreIds,
